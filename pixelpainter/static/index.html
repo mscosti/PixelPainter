@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script src="https://cdn.jsdelivr.net/npm/umbrellajs"></script>
+        <script async src="pixelstick.js"></script>
+        
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            img#domImage {
+                visibility: hidden;
+            }
+            .center {
+                text-align: center;
+            }
+            </style>
+        <link rel="stylesheet" href="lib/mini.css-3.0.1/dist/mini-nord.min.css" />
+    </head>
+    <body>
+        <div class="center">
+            <h1>Pixel Stick</h1>
+        </div>
+        <form action='#' onsubmit="return false;">
+            <input type='file' id='imgSelect'/>
+        </form>
+        <div class="container">
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="center">
+                        <h4>Downscaled</h4>
+                        <canvas id="canvas"></canvas>
+                    </div>  
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="center">
+                        <button id="sendImg"> send! </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <img id="domImage"/>
+    </body>
+</html>
