@@ -1,9 +1,6 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <script src="https://cdn.jsdelivr.net/npm/umbrellajs"></script>
-        <script async src="pixelstick.js"></script>
-        
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             img#domImage {
@@ -13,7 +10,7 @@
                 text-align: center;
             }
             </style>
-        <link rel="stylesheet" href="lib/mini.css-3.0.1/dist/mini-nord.min.css" />
+        <link rel="stylesheet" href="/mini-nord.min.css"/>
     </head>
     <body>
         <div class="center">
@@ -36,9 +33,14 @@
                     <div class="center">
                         <button id="sendImg"> send! </button>
                     </div>
+                    <div class="center">
+                        <button id="start"> display! </button>
+                    </div>
                 </div>
             </div>
         </div>
         <img id="domImage"/>
+
+        <script src="pixelpainter.js"></script>
     </body>
 </html>

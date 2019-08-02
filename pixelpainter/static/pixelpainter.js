@@ -159,21 +159,36 @@ var genBitmapImage = function (oData) {
 };
 
 var run = () => {
-    u("#imgSelect").on('change', (e) => {
+    console.log("ready!")
+    let imgSelect = document.getElementById("imgSelect")
+    let sendImg = document.getElementById("sendImg")
+    let start = document.getElementById("start")
+
+    imgSelect.addEventListener('change', (e) => {
+        console.log("change!")
        loadImage(document.getElementById("imgSelect")) 
     });
-    u("#sendImg").on('click', (e) => {
-        filename = document.getElementById('filename').value;
-        fetch("http://192.168.0.177/ajax/loadImage?"+filename, {
+    sendImg.addEventListener('click', (e) => {
+        // filename = document.getElementById('filename').value;
+        fetch("http://192.168.4.1/ajax/loadImage", {
             method: 'POST',
             mode: "no-cors",
             body: window.fullDataStr
         })
     });
+    start.addEventListener('click', (e) => {
+        fetch("http://192.168.4.1/ajax/startDisplay", {
+            method: 'POST',
+            mode: "no-cors",
+            body: window.fullDataStr
+        })
+    })
 
 }
 
+console.log("loaded JS")
 if (document.readyState === 'loading') {  // Loading hasn't finished yet
+  console.log("dom content not ready")
   document.addEventListener('DOMContentLoaded', run());
 } else {  // `DOMContentLoaded` has already fired
   run();

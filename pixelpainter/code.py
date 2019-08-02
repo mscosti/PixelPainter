@@ -36,15 +36,14 @@ esp32_reset = DigitalInOut(board.D7)
 
 spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
 esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
-esp.set_ip_addr("192.168.0.177")
-
+# esp.set_ip_addr("192.168.0.177")
 ## Connect to wifi with secrets
 wifi = wifimanager.ESPSPI_WiFiManager(esp, secrets, status_light, debug=True)
-wifi.connect()
+wifi.create_ap()
 
 pixel_pin = board.D5
 num_pixels = 59
-pixels = neopixel.NeoPixel(pixel_pin, num_pixels, brightness=1, auto_write = False, pixel_order = neopixel.RGB)
+pixels = neopixel.NeoPixel(pixel_pin, num_pixels, brightness=1, auto_write = False, pixel_order = neopixel.GRB)
 
 # TODO: Move to separate File (and eventually remove in favor of CircuitPython_WSGI)
 class SimpleWSGIApplication:
@@ -110,7 +109,11 @@ class SimpleWSGIApplication:
 
     def serve_file(self, file_path, directory=None):
         status = "200 OK"
-        headers = [("Content-Type", self._get_content_type(file_path))]
+        contentType = self._get_content_type(file_path)
+        headers = [("Content-Type", contentType)]
+        if (contentType == 'text/css'):
+            headers.append(("cache-control", "public, max-age=604800, s-maxage=43200"))
+
 
         full_path = file_path if not directory else directory + file_path
         def resp_iter():
@@ -118,6 +121,7 @@ class SimpleWSGIApplication:
                 while True:
                     chunk = file.read(self.CHUNK_SIZE)
                     if chunk:
+                        # time.sleep(0.05)
                         yield chunk
                     else:
                         break
@@ -176,7 +180,7 @@ class pixel_painter_application:
 
     def load_image(self,environ):
         print("yo!")
-        file_name = '/static/current_image'
+        file_name = '/static/current_image.bmp'
         b = environ["wsgi.input"]
         file = open(file_name, "wb")
         file.write(bytes(b.getvalue(),'utf-8'))
@@ -189,7 +193,7 @@ class pixel_painter_application:
         print("start display")
         # TODO: accept argument for turning loop mode on
         self.is_displaying = True
-        r = bmpReader('/static/current_image')
+        r = bmpReader('/static/current_image.bmp')
         (self.display_width, self.display_height, self.current_display) = r.read_rows()
         gc.collect()        # TODO: if width is different than pixel strip length, return 400
 
@@ -203,9 +207,10 @@ class pixel_painter_application:
         if self.is_displaying and self.current_display:
             print("start displaying")
             rowSize = (self.display_width * 3)
+            print("current_display_size: ", len(self.current_display))
             for row in range(self.display_height):
                 pixel_index = 0
-                for col in range(self.display_height):
+                for col in range(self.display_width):
                     idx = (rowSize * row) + (col * 3)
                     pixels[pixel_index] = tuple(self.current_display[idx:idx+3])
                     pixel_index += 1
@@ -215,9 +220,6 @@ class pixel_painter_application:
                 self.is_displaying = False
                 pixels.fill((0,0,0))
                 pixels.show()
-
-
-        # self.current_img = json_module.loads(environ["wsgi.input"].getvalue())
 
 # Here we create our application, setting the static directory location
 # and registering the above request_handlers for specific HTTP requests
