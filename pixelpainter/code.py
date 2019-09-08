@@ -7,6 +7,7 @@ from digitalio import DigitalInOut
 from struct import *
 import neopixel
 
+import adafruit_fancyled.adafruit_fancyled as fancy
 from adafruit_esp32spi import adafruit_esp32spi
 import adafruit_esp32spi.adafruit_esp32spi_wifimanager as wifimanager
 import adafruit_esp32spi.adafruit_esp32spi_wsgiserver as server
@@ -36,16 +37,16 @@ esp32_reset = DigitalInOut(board.D7)
 
 spi = busio.SPI(board.SCK, board.MOSI, board.MISO)
 esp = adafruit_esp32spi.ESP_SPIcontrol(spi, esp32_cs, esp32_ready, esp32_reset)
-# esp.set_ip_addr("192.168.0.177")
+esp.set_ip_addr("192.168.4.1")
 ## Connect to wifi with secrets
 wifi = wifimanager.ESPSPI_WiFiManager(esp, secrets, status_light, debug=True)
 wifi.create_ap()
+# wifi.connect()
 
 pixel_pin = board.D5
 num_pixels = 59
 pixels = neopixel.NeoPixel(pixel_pin, num_pixels, brightness=1, auto_write = False, pixel_order = neopixel.GRB)
 
-# TODO: Move to separate File (and eventually remove in favor of CircuitPython_WSGI)
 class SimpleWSGIApplication:
     """
     An example of a simple WSGI Application that supports 
@@ -53,7 +54,7 @@ class SimpleWSGIApplication:
     """
 
     INDEX = "/index.html"
-    CHUNK_SIZE = 8912 # Number of bytes to send at once when serving files
+    CHUNK_SIZE = 8192 # Number of bytes to send at once when serving files
 
     def on(self, method, path, request_handler):
         """
@@ -121,7 +122,7 @@ class SimpleWSGIApplication:
                 while True:
                     chunk = file.read(self.CHUNK_SIZE)
                     if chunk:
-                        # time.sleep(0.05)
+                        time.sleep(0.05)
                         yield chunk
                     else:
                         break
@@ -152,24 +153,24 @@ class SimpleWSGIApplication:
         if ext == "png":
             return "image/png"
         return "text/plain"
+class display_type:
+    OFF = 0
+    BMP = 1
+    COLORS = 2
+    COLORS_GRAD_ANIMATE = 3
 
-
-class pixel_painter_application:
+class pixel_stick:
     def __init__(self):
-        self.is_displaying = False
-        self.loop = False
+        self.is_displaying = display_type.OFF
+        self.loop_image = False
+        self.colors_pixels = [0] * num_pixels
+        self.palette = []
+        self.animation_step = 0
+        self.period = 0
+        self.duty_cycle = 1
         self.current_display = []
     
     # Our HTTP Request handlers
-    def led_on(self,environ): # pylint: disable=unused-argument
-        print("led on!")
-        status_light.fill((0, 0, 100))
-        return web_app.serve_file("static/index.html")
-
-    def led_off(self,environ): # pylint: disable=unused-argument
-        print("led off!")
-        status_light.fill(0)
-        return web_app.serve_file("static/index.html")
 
     def led_color(self,environ): # pylint: disable=unused-argument
         json = json_module.loads(environ["wsgi.input"].getvalue())
@@ -186,41 +187,142 @@ class pixel_painter_application:
         file.write(bytes(b.getvalue(),'utf-8'))
         file.flush()
         file.close()
+        gc.collect()
 
         return ("200 OK", [], [])
 
-    def start_display(self, environ):
+    def start_image(self, environ):
         print("start display")
-        # TODO: accept argument for turning loop mode on
-        self.is_displaying = True
+        self.is_displaying = display_type.BMP
+        json = json_module.loads(environ["wsgi.input"].getvalue())
+        if json and json.get("loop_image"):
+            self.loop_image = json.get("loop_image")
+            print("loop_image:", self.loop_image)
         r = bmpReader('/static/current_image.bmp')
         (self.display_width, self.display_height, self.current_display) = r.read_rows()
         gc.collect()        # TODO: if width is different than pixel strip length, return 400
 
         return ("200 OK", [], [])
+    
+    def start_colors(self, environ):
+        print("start colors")
+        json = json_module.loads(environ["wsgi.input"].getvalue())
+        if json and json.get("colors"):
+            colors = json.get("colors")
+            if json.get("blend"):
+                self.palette = []
+                for color in colors:
+                    print(color)
+                    self.palette.append(fancy.CRGB(color.get("r"),color.get("g"), color.get("b")))
+            self.period = json.get("period") if json.get("period") else 0
+            self.duty_cycle = json.get("duty_cycle") if json.get("duty_cycle") else 1
+
+            if json.get("animate"):
+                self.is_displaying = display_type.COLORS_GRAD_ANIMATE
+                return ("200 OK", [], [])
+            
+            partition_size = num_pixels // len(colors)
+            remainder = num_pixels % len(colors)
+            if json.get("blend"):
+                for i in range(num_pixels):
+                    pos = (i / ((num_pixels * len(colors)) / (len(colors) - 1) ) )
+                    color = fancy.palette_lookup(self.palette, pos)
+                    print('pos', pos)
+                    print('color', color)
+                    color = fancy.gamma_adjust(color, brightness=0.5)
+                    self.colors_pixels[i] = color.pack()
+            else:
+                for idx, color in enumerate(colors):
+                    color = fancy.CRGB(color.get("r"),color.get("g"), color.get("b"))
+                    # color = fancy.gamma_adjust(color, brightness=0.5)
+                    current_idx = idx * partition_size
+                    use_remainder = remainder if idx == len(colors) - 1 else 0
+
+                    self.colors_pixels[current_idx: current_idx + partition_size + use_remainder] = [color.pack()] * (partition_size + use_remainder)
+            self.is_displaying = display_type.COLORS
+        return ("200 OK", [], [])
 
     def stop_display(self, environ):
-        self.is_displaying = False
+        self.is_displaying = display_type.OFF
+        self.loop_image = False
+        pixels.fill((0,0,0))
+        pixels.show()
         return ("200 OK", [], [])
     
     def process_display(self):
-        if self.is_displaying and self.current_display:
+        if self.is_displaying == display_type.COLORS and self.colors_pixels:
+            pixels[:] = self.colors_pixels
+            pixels.show()
+            self._blink()
+        if self.is_displaying == display_type.COLORS_GRAD_ANIMATE and self.palette:
+            # pos = self.animation_step / (len(self.palette) / (len(self.palette) - 1))
+            # self.animation_step += 0.1 / min(3, len(self.palette))
+            # color = fancy.palette_lookup(self.palette, pos)
+            # color = fancy.gamma_adjust(color, brightness=0.5)
+            # pixels.fill(color.pack())
+            # pixels.show()
+            # self._blink()
+            sleep = 0.05
+            self.animation_step += sleep / ( len(self.palette) * self.period ) 
+            print(sleep / ( len(self.palette) * self.period ))
+            # print(self.animation_step)
+            color = fancy.palette_lookup(self.palette, self.animation_step)
+            # print(color)
+            # color = fancy.gamma_adjust(color, brightness=0.5)
+            pixels.fill(color.pack())
+            pixels.show()
+
+            # time.sleep(sleep*0.5)
+
+        if self.is_displaying == display_type.BMP and self.current_display:
             print("start displaying")
             rowSize = (self.display_width * 3)
             print("current_display_size: ", len(self.current_display))
+            # rowCounter = 0
+            # rgb = []
+            # for val in self.current_display:
+            #     if (len(rgb) == 3):
+            #         print("rgb", rgb)
+            #         pixels[rowCounter] = tuple(rgb)
+            #         rgb = []
+            #         rgb.append(val)
+            #         rowCounter += 1
+            #     else:
+            #         rgb.append(val)
+                
+            #     if (rowCounter == self.display_width):
+            #         print("row finished")
+            #         pixels.show()
+            #         time.sleep(0.1)
+            #         rowCounter = 0
+            # print("done!")
             for row in range(self.display_height):
+                # print("row", row)
                 pixel_index = 0
                 for col in range(self.display_width):
+                    # print("col", col)
                     idx = (rowSize * row) + (col * 3)
+                    # print("idx", idx)
+                    # print("rgb ", tuple(self.current_display[idx:idx+3]))
                     pixels[pixel_index] = tuple(self.current_display[idx:idx+3])
                     pixel_index += 1
+                # print(pixels)
                 pixels.show()
                 time.sleep(0.01)
-            if (not self.loop):
-                self.is_displaying = False
+            if (not self.loop_image):
+                self.is_displaying = display_type.OFF
                 pixels.fill((0,0,0))
                 pixels.show()
 
+        # self.current_img = json_module.loads(environ["wsgi.input"].getvalue())
+    
+    def _blink(self):
+        if (self.period) > 0:
+            time.sleep(self.period * self.duty_cycle)
+            if (self.duty_cycle < 1):
+                pixels.fill((0,0,0))
+                pixels.show()
+                time.sleep(self.period - (self.period * self.duty_cycle))
 # Here we create our application, setting the static directory location
 # and registering the above request_handlers for specific HTTP requests
 # we want to listen and respond to.
@@ -236,13 +338,12 @@ except (OSError) as e:
         This example depends on a static asset directory.
         Please create one named {0} in the root of the device filesystem.""".format(static_dir))
 
-pixelStick = pixel_painter_application()
+pixelStick = pixel_stick()
 web_app = SimpleWSGIApplication(static_dir=static_dir)
-web_app.on("GET", "/led_on", pixelStick.led_on)
-web_app.on("GET", "/led_off", pixelStick.led_off)
 web_app.on("POST", "/ajax/ledcolor", pixelStick.led_color)
 web_app.on("POST", "/ajax/loadImage", pixelStick.load_image)
-web_app.on("POST", "/ajax/startDisplay", pixelStick.start_display)
+web_app.on("POST", "/ajax/startImage", pixelStick.start_image)
+web_app.on("POST", "/ajax/startColors", pixelStick.start_colors)
 web_app.on("POST", "/ajax/stopDisplay", pixelStick.stop_display)
 
 # Here we setup our server, passing in our web_app as the application

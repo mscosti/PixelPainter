@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <script src="https://cdn.jsdelivr.net/npm/umbrellajs"></script>
+        
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
             img#domImage {
@@ -8,6 +10,94 @@
             }
             .center {
                 text-align: center;
+            }
+            input[type=range] {
+            -webkit-appearance: none;
+            margin: 18px 0;
+            width: 100%;
+            }
+            input[type=range]:focus {
+            outline: none;
+            }
+            input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8.4px;
+            cursor: pointer;
+            animate: 0.2s;
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+            background: #3071a9;
+            border-radius: 1.3px;
+            border: 0.2px solid #010101;
+            }
+            input[type=range]::-webkit-slider-thumb {
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+            border: 1px solid #000000;
+            height: 36px;
+            width: 16px;
+            border-radius: 3px;
+            background: #ffffff;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -14px;
+            }
+            input[type=range]:focus::-webkit-slider-runnable-track {
+            background: #367ebd;
+            }
+            input[type=range]::-moz-range-track {
+            width: 100%;
+            height: 8.4px;
+            cursor: pointer;
+            animate: 0.2s;
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+            background: #3071a9;
+            border-radius: 1.3px;
+            border: 0.2px solid #010101;
+            }
+            input[type=range]::-moz-range-thumb {
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+            border: 1px solid #000000;
+            height: 36px;
+            width: 16px;
+            border-radius: 3px;
+            background: #ffffff;
+            cursor: pointer;
+            }
+            input[type=range]::-ms-track {
+            width: 100%;
+            height: 8.4px;
+            cursor: pointer;
+            animate: 0.2s;
+            background: transparent;
+            border-color: transparent;
+            border-width: 16px 0;
+            color: transparent;
+            }
+            input[type=range]::-ms-fill-lower {
+            background: #2a6495;
+            border: 0.2px solid #010101;
+            border-radius: 2.6px;
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+            }
+            input[type=range]::-ms-fill-upper {
+            background: #3071a9;
+            border: 0.2px solid #010101;
+            border-radius: 2.6px;
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+            }
+            input[type=range]::-ms-thumb {
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
+            border: 1px solid #000000;
+            height: 36px;
+            width: 16px;
+            border-radius: 3px;
+            background: #ffffff;
+            cursor: pointer;
+            }
+            input[type=range]:focus::-ms-fill-lower {
+            background: #3071a9;
+            }
+            input[type=range]:focus::-ms-fill-upper {
+            background: #367ebd;
             }
             </style>
         <link rel="stylesheet" href="/mini-nord.min.css"/>
@@ -34,12 +124,67 @@
                         <button id="sendImg"> send! </button>
                     </div>
                     <div class="center">
+                        <input type="checkbox" id="loop" name="loop">
+                        <label for="loop">Loop?</label>
+                    </div>
+                    <div class="center">
                         <button id="start"> display! </button>
+                    </div>
+                    <div class="center">
+                        <button id="stop"> stop! </button>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <div class="center">
+                        <h4>Colors</h4>
+                    </div>  
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-sm-6">
+                    <div class="center">
+                        <button id="removeColor">-</button>
+                    </div>  
+                </div>
+                <div class="col-sm-6">
+                    <div class="center">
+                        <button id="addColor">+</button>
+                    </div>  
+                </div>
+            </div>
+            <div id="colorsList">
+            </div>
+            <div class="row">
+                <div class="col-sm-12">
+                    <form class="center">
+                        <label for="period">period (s)</label>
+                        <input type="range" name="period" id="periodInputId" value="0.5" min="0" max="1" step="0.01" oninput="periodOutputId.value = periodInputId.value">
+                        <output name="period" id="periodOutputId">1</output>
+                    </form>
+                    <form class="center">
+                        <label for="dutyCycle">duty cycle</label>
+                        <input type="range" name="dutyCycle" id="dutyCycleInputId" value="1" min="0" max="1" step="0.05" oninput="dutyCycleOutputId.value = dutyCycleInputId.value">
+                        <output name="dutyCycle" id="dutyCycleOutputId">1</output>
+                    </form>
+                    <div class="center">
+                        <input type="checkbox" id="blend" name="blend">
+                        <label for="blend">blend?</label>
+                    </div>
+                    <div class="center">
+                        <input type="checkbox" id="animate" name="animate">
+                        <label for="animate">animate? (only if blending)</label>
+                    </div>
+                    <div class="center">
+                        <button id="startColor"> send color! </button>
                     </div>
                 </div>
             </div>
         </div>
         <img id="domImage"/>
+
+        hi there
 
         <script src="pixelpainter.js"></script>
     </body>
